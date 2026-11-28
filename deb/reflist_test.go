@@ -753,7 +753,7 @@ func (s *PackageRefListSuite) TestArchitectureVariantMerge(c *C) {
 				if reverse {
 					l, r = r, l
 				}
-				merged := l.Merge(r, overrideMatching, ignoreConflicting)
+				merged := oldMergeInline(l, r, overrideMatching, ignoreConflicting)
 				c.Check(toStrSlice(merged), DeepEquals, []string{
 					"Pamd64 example 1.0 00000000",
 					"Pamd64v3 example 1.0 00000000",
