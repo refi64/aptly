@@ -102,7 +102,8 @@ func (*RepoAddVariantSuite) TestRepoAddArchitectureVariant(c *check.C) {
 			context = testContext
 			defer testContext.Shutdown()
 			factory := testContext.NewCollectionFactory()
-			c.Assert(factory.LocalRepoCollection().Add(deb.NewLocalRepo("test", "")), check.IsNil)
+			reflistCollection := factory.RefListCollection()
+			c.Assert(factory.LocalRepoCollection().Add(deb.NewLocalRepo("test", ""), reflistCollection), check.IsNil)
 			add := func(id string) error { return aptlyRepoAdd(makeCmdRepoAdd(), []string{"test", fixtures[id].path}) }
 			for _, id := range tc.initial {
 				c.Assert(add(id), check.IsNil)
@@ -114,9 +115,9 @@ func (*RepoAddVariantSuite) TestRepoAddArchitectureVariant(c *check.C) {
 			factory = testContext.NewCollectionFactory()
 			repo, err := factory.LocalRepoCollection().ByName("test")
 			c.Assert(err, check.IsNil)
-			c.Assert(factory.LocalRepoCollection().LoadComplete(repo), check.IsNil)
+			c.Assert(factory.LocalRepoCollection().LoadComplete(repo, reflistCollection), check.IsNil)
 			got := map[string]string{}
-			for _, key := range repo.RefList().Refs {
+			for _, key := range repo.RefList().Flatten().Refs {
 				p, err := factory.PackageCollection().ByKey(key)
 				c.Assert(err, check.IsNil)
 				c.Check(p.Architecture, check.Equals, "amd64", check.Commentf("case %s", tc.name))

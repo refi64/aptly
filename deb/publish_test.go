@@ -403,8 +403,8 @@ func (s *PublishedRepoSuite) checkArchitectureVariantPublication(c *C, architect
 		c.Assert(list.Add(p), IsNil)
 	}
 	local := NewLocalRepo("architecture-variant", "")
-	local.packageRefs = NewPackageRefListFromPackageList(list)
-	c.Assert(s.factory.LocalRepoCollection().Add(local), IsNil)
+	local.packageRefs = NewSplitRefListFromPackageList(list)
+	c.Assert(s.factory.LocalRepoCollection().Add(local, s.reflistCollection), IsNil)
 	repo, err := NewPublishedRepo("", "variant-test", "test", architectures, []string{"main"}, []interface{}{local}, s.factory, false)
 	c.Assert(err, IsNil)
 	repo.SkipContents = true

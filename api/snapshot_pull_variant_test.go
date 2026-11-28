@@ -81,14 +81,15 @@ func TestSnapshotPullArchitectureVariant(t *testing.T) {
 				}
 				t.Cleanup(testContext.Shutdown)
 				factory := testContext.NewCollectionFactory()
-				refs := func(packages []*deb.Package) *deb.PackageRefList {
+				reflistCollection := factory.RefListCollection()
+				refs := func(packages []*deb.Package) *deb.SplitRefList {
 					list := deb.NewPackageList()
 					for _, p := range packages {
 						if err := list.Add(p); err != nil {
 							t.Fatal(err)
 						}
 					}
-					return deb.NewPackageRefListFromPackageList(list)
+					return deb.NewSplitRefListFromPackageList(list)
 				}
 				for _, p := range append(append([]*deb.Package{}, tc.dest...), tc.source...) {
 					if err := factory.PackageCollection().Update(p); err != nil {
@@ -96,7 +97,7 @@ func TestSnapshotPullArchitectureVariant(t *testing.T) {
 					}
 				}
 				for name, packages := range map[string][]*deb.Package{"base": tc.dest, "source": tc.source} {
-					if err := factory.SnapshotCollection().Add(deb.NewSnapshotFromRefList(name, nil, refs(packages), "")); err != nil {
+					if err := factory.SnapshotCollection().Add(deb.NewSnapshotFromRefList(name, nil, refs(packages), ""), reflistCollection); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -125,10 +126,10 @@ func TestSnapshotPullArchitectureVariant(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err = snapshots.LoadComplete(result); err != nil {
+				if err = snapshots.LoadComplete(result, reflistCollection); err != nil {
 					t.Fatal(err)
 				}
-				got, want := result.RefList().Strings(), refs(tc.want).Strings()
+				got, want := result.RefList().Flatten().Strings(), refs(tc.want).Flatten().Strings()
 				if !reflect.DeepEqual(got, want) {
 					t.Errorf("persisted package identities:\n got %v\nwant %v", got, want)
 				}

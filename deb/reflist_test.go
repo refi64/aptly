@@ -785,10 +785,11 @@ func (s *PackageRefListSuite) TestFilterLatestRefsRemovesInvalidVersions(c *C) {
 func (s *PackageRefListSuite) TestArchitectureVariantCoexistence(c *C) {
 	normal := &Package{Name: "example", Version: "1.0", Architecture: "amd64", V06Plus: true}
 	variant := &Package{Name: "example", Version: "1.0", Architecture: "amd64", ArchitectureVariant: "amd64v3", V06Plus: true}
-	c.Assert(s.list.Add(normal), IsNil)
-	c.Assert(s.list.Add(variant), IsNil)
+	list := NewPackageList()
+	c.Assert(list.Add(normal), IsNil)
+	c.Assert(list.Add(variant), IsNil)
 
-	refs := NewPackageRefListFromPackageList(s.list)
+	refs := NewPackageRefListFromPackageList(list)
 	c.Check(toStrSlice(refs), DeepEquals, []string{
 		"Pamd64 example 1.0 00000000",
 		"Pamd64v3 example 1.0 00000000",
@@ -824,14 +825,15 @@ func (s *PackageRefListSuite) TestArchitectureVariantMerge(c *C) {
 }
 
 func (s *PackageRefListSuite) TestArchitectureVariantFilterLatestRefs(c *C) {
+	list := NewPackageList()
 	for _, variant := range []string{"", "amd64v3"} {
 		for _, version := range []string{"1.0", "2.0"} {
-			c.Assert(s.list.Add(&Package{
+			c.Assert(list.Add(&Package{
 				Name: "example", Version: version, Architecture: "amd64", ArchitectureVariant: variant, V06Plus: true,
 			}), IsNil)
 		}
 	}
-	refs := NewPackageRefListFromPackageList(s.list)
+	refs := NewPackageRefListFromPackageList(list)
 	c.Assert(refs.Len(), Equals, 4)
 	refs.FilterLatestRefs()
 	c.Check(toStrSlice(refs), DeepEquals, []string{
@@ -863,7 +865,7 @@ func (s *PackageRefListSuite) TestArchitectureVariantDiffCompaction(c *C) {
 			if reverse {
 				l, r = r, l
 			}
-			diff, err := l.Diff(r, coll)
+			diff, err := l.Diff(r, coll, nil)
 			c.Assert(err, IsNil)
 			context := Commentf("variant version=%s reverse=%v", version, reverse)
 			c.Check(diff, HasLen, 2, context)

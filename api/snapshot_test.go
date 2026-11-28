@@ -99,6 +99,7 @@ func (*SnapshotsSuite) TestPullPreservesDestinationPackages(c *C) {
 	defer testContext.Shutdown()
 	s := &APISuite{context: testContext, router: Router(testContext)}
 	factory := s.context.NewCollectionFactory()
+	reflistCollection := factory.RefListCollection()
 	for _, mode := range []string{"inferred", "explicit"} {
 		a := &deb.Package{Name: "package-a", Version: "1", Architecture: "amd64"}
 		b := &deb.Package{Name: "package-b", Version: "1", Architecture: "amd64"}
@@ -107,7 +108,7 @@ func (*SnapshotsSuite) TestPullPreservesDestinationPackages(c *C) {
 			list := deb.NewPackageList()
 			c.Assert(list.Add(pkg), IsNil)
 			snapshot := deb.NewSnapshotFromPackageList("pull-"+name+"-"+mode, nil, list, "")
-			c.Assert(factory.SnapshotCollection().Add(snapshot), IsNil)
+			c.Assert(factory.SnapshotCollection().Add(snapshot, reflistCollection), IsNil)
 		}
 		params := snapshotsPullParams{
 			Source:      "pull-source-" + mode,
@@ -127,8 +128,8 @@ func (*SnapshotsSuite) TestPullPreservesDestinationPackages(c *C) {
 		snapshots := s.context.NewCollectionFactory().SnapshotCollection()
 		result, err := snapshots.ByName(params.Destination)
 		c.Assert(err, IsNil)
-		c.Assert(snapshots.LoadComplete(result), IsNil)
-		c.Check(result.RefList().Strings(), DeepEquals, []string{
+		c.Assert(snapshots.LoadComplete(result, reflistCollection), IsNil)
+		c.Check(result.RefList().Flatten().Strings(), DeepEquals, []string{
 			string(a.Key("")), string(b.Key("")),
 		}, Commentf("%s: preserve A and add B", mode))
 	}
