@@ -77,18 +77,19 @@ func (*SnapshotPullVariantSuite) TestSnapshotPullArchitectureVariant(c *check.C)
 			c.Assert(err, check.IsNil)
 			defer testContext.Shutdown()
 			factory := testContext.NewCollectionFactory()
-			refs := func(packages []*deb.Package) *deb.PackageRefList {
+			reflistCollection := factory.RefListCollection()
+			refs := func(packages []*deb.Package) *deb.SplitRefList {
 				list := deb.NewPackageList()
 				for _, p := range packages {
 					c.Assert(list.Add(p), check.IsNil)
 				}
-				return deb.NewPackageRefListFromPackageList(list)
+				return deb.NewSplitRefListFromPackageList(list)
 			}
 			for _, p := range append(append([]*deb.Package{}, tc.dest...), tc.source...) {
 				c.Assert(factory.PackageCollection().Update(p), check.IsNil)
 			}
 			for name, packages := range map[string][]*deb.Package{"base": tc.dest, "source": tc.source} {
-				c.Assert(factory.SnapshotCollection().Add(deb.NewSnapshotFromRefList(name, nil, refs(packages), "")), check.IsNil)
+				c.Assert(factory.SnapshotCollection().Add(deb.NewSnapshotFromRefList(name, nil, refs(packages), ""), reflistCollection), check.IsNil)
 			}
 			savedContext := context
 			context = testContext
@@ -97,8 +98,8 @@ func (*SnapshotPullVariantSuite) TestSnapshotPullArchitectureVariant(c *check.C)
 			snapshots := testContext.NewCollectionFactory().SnapshotCollection()
 			result, err := snapshots.ByName("result")
 			c.Assert(err, check.IsNil)
-			c.Assert(snapshots.LoadComplete(result), check.IsNil)
-			got, want := result.RefList().Strings(), refs(tc.want).Strings()
+			c.Assert(snapshots.LoadComplete(result, reflistCollection), check.IsNil)
+			got, want := result.RefList().Flatten().Strings(), refs(tc.want).Flatten().Strings()
 			c.Check(got, check.DeepEquals, want, check.Commentf("case %s: persisted package identities", tc.name))
 		}()
 	}

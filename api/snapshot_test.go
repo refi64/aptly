@@ -21,9 +21,12 @@ type SnapshotsSuite struct {
 var _ = Suite(&SnapshotsSuite{})
 
 func (s *SnapshotsSuite) TestGetSnapshotsIncludesNumPackages(c *C) {
-	collection := s.context.NewCollectionFactory().SnapshotCollection()
+	collectionFactory := s.context.NewCollectionFactory()
+	collection := collectionFactory.SnapshotCollection()
+	reflistCollection := collectionFactory.RefListCollection()
+
 	snapshot := deb.NewSnapshotFromRefList("count-snapshot-list", nil, makePackageRefList(c), "")
-	c.Assert(collection.Add(snapshot), IsNil)
+	c.Assert(collection.Add(snapshot, reflistCollection), IsNil)
 
 	response, err := s.HTTPRequest("GET", "/api/snapshots", nil)
 	c.Assert(err, IsNil)
@@ -48,9 +51,12 @@ func (s *SnapshotsSuite) TestGetSnapshotsIncludesNumPackages(c *C) {
 }
 
 func (s *SnapshotsSuite) TestGetSnapshotsReturns500OnCorruptRefList(c *C) {
-	collection := s.context.NewCollectionFactory().SnapshotCollection()
+	collectionFactory := s.context.NewCollectionFactory()
+	collection := collectionFactory.SnapshotCollection()
+	reflistCollection := collectionFactory.RefListCollection()
+
 	snapshot := deb.NewSnapshotFromRefList("broken-snapshot-list", nil, makePackageRefList(c), "")
-	c.Assert(collection.Add(snapshot), IsNil)
+	c.Assert(collection.Add(snapshot, reflistCollection), IsNil)
 	putRawDBValue(c, &s.APISuite, snapshot.RefKey(), []byte("not-msgpack"))
 
 	response, err := s.HTTPRequest("GET", "/api/snapshots", nil)
@@ -60,9 +66,11 @@ func (s *SnapshotsSuite) TestGetSnapshotsReturns500OnCorruptRefList(c *C) {
 }
 
 func (s *SnapshotsSuite) TestGetSnapshotsHandlesConcurrentDeletion(c *C) {
-	collection := s.context.NewCollectionFactory().SnapshotCollection()
+	collectionFactory := s.context.NewCollectionFactory()
+	collection := collectionFactory.SnapshotCollection()
+	reflistCollection := collectionFactory.RefListCollection()
 	snapshot := deb.NewSnapshotFromRefList("deleted-snapshot-list", nil, makePackageRefList(c), "")
-	c.Assert(collection.Add(snapshot), IsNil)
+	c.Assert(collection.Add(snapshot, reflistCollection), IsNil)
 	// Simulate concurrent deletion by dropping the ref key or entire snapshot record
 	c.Assert(collection.Drop(snapshot), IsNil)
 
@@ -91,6 +99,7 @@ func (*SnapshotsSuite) TestPullPreservesDestinationPackages(c *C) {
 	defer testContext.Shutdown()
 	s := &APISuite{context: testContext, router: Router(testContext)}
 	factory := s.context.NewCollectionFactory()
+	reflistCollection := factory.RefListCollection()
 	for _, mode := range []string{"inferred", "explicit"} {
 		a := &deb.Package{Name: "package-a", Version: "1", Architecture: "amd64"}
 		b := &deb.Package{Name: "package-b", Version: "1", Architecture: "amd64"}
@@ -99,7 +108,7 @@ func (*SnapshotsSuite) TestPullPreservesDestinationPackages(c *C) {
 			list := deb.NewPackageList()
 			c.Assert(list.Add(pkg), IsNil)
 			snapshot := deb.NewSnapshotFromPackageList("pull-"+name+"-"+mode, nil, list, "")
-			c.Assert(factory.SnapshotCollection().Add(snapshot), IsNil)
+			c.Assert(factory.SnapshotCollection().Add(snapshot, reflistCollection), IsNil)
 		}
 		params := snapshotsPullParams{
 			Source:      "pull-source-" + mode,
@@ -119,8 +128,8 @@ func (*SnapshotsSuite) TestPullPreservesDestinationPackages(c *C) {
 		snapshots := s.context.NewCollectionFactory().SnapshotCollection()
 		result, err := snapshots.ByName(params.Destination)
 		c.Assert(err, IsNil)
-		c.Assert(snapshots.LoadComplete(result), IsNil)
-		c.Check(result.RefList().Strings(), DeepEquals, []string{
+		c.Assert(snapshots.LoadComplete(result, reflistCollection), IsNil)
+		c.Check(result.RefList().Flatten().Strings(), DeepEquals, []string{
 			string(a.Key("")), string(b.Key("")),
 		}, Commentf("%s: preserve A and add B", mode))
 	}
